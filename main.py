@@ -1,0 +1,51 @@
+import requests
+import yaml
+import json
+
+
+
+with open("/home/meizuflux/youtube-webhook/config.yml") as f:
+    config = yaml.safe_load(f)
+
+YT_PARAMS = {
+    "key": config["key"],
+    "maxResults": 50,
+    "part": "snippet",
+    "playlistId": config["playlist"]
+}
+
+def get_new(new_data) -> list:
+    with open(config["path"] + "/data.json", "r") as f:
+        old_data = json.load(f)
+
+    return new_data["items"].sort(key = lambda x: x not in old_data["items"])
+
+def get_videos():
+    req = requests.get("https://www.googleapis.com/youtube/v3/playlistItems", params=YT_PARAMS)
+    return req.json()
+
+def post_webhook(url: str, title: str):
+    data = {
+        "content": f"@everyone\nNew YouTube video out: {title} -> {url}",
+        "username": "YouTube Notifications",
+        "avatar_url": "https://www.logo.wine/a/logo/YouTube/YouTube-Icon-Full-Color-Logo.wine.svg"
+    }
+
+    requests.post(config["webhook"], json=data)
+
+    print(f"Posted Webhook: {title} - {url}")
+
+def save_data(data):
+    with open(config["path"] + "/data.json", "w") as f:
+        json.dump(f, data)
+
+def main():
+    data = get_videos()
+    print(data)
+    new = get_new(data)
+    for video in new:
+        post_webhook(video["snippet"]["title"], "https://www.youtube.com/watch?v=" + video["id"])
+    save_data(data)
+
+if __name__ == "__main__":
+    main()
